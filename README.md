@@ -47,6 +47,22 @@ uv run typecheck        # Run type checking with mypy
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
+## Frontend Workspace
+
+The `frontend/` directory ships with a Next.js 14 dashboard for running triage, renewal, and pricing workflows.
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+By default the UI targets `http://localhost:8000`. Override via `frontend/.env.local`:
+
+```
+NEXT_PUBLIC_CREDITX_API=http://your-api-host
+```
+
 ## API Endpoints
 
 ### Health Check

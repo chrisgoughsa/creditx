@@ -98,8 +98,8 @@ def renewals_priority(policies_df: pl.DataFrame) -> List[Dict[str, Any]]:
     # Calculate weighted priority scores using vectorized operations
     # Clip requested_change_pct to reasonable range for scoring
     change_pct_clipped = policies_df["requested_change_pct"].clip(
-        thresholds["change_pct_min"], 
-        thresholds["change_pct_max"]
+        thresholds.change_pct_min,
+        thresholds.change_pct_max,
     )
     
     priorities = (
