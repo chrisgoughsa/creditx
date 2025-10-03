@@ -59,7 +59,9 @@ def test_strong_profile_gets_low_risk_band(strong_submission):
     
     suggestion = data[0]
     assert suggestion["id"] == "strong_001"
-    assert suggestion["band"] in ["A (<=200)", "B (201-250)"]
+    assert suggestion["band_code"] in ["A", "B"]
+    assert suggestion["band_label"] in ["<=200 bps", "201-250 bps"]
+    assert isinstance(suggestion["band_description"], str)
     assert suggestion["suggested_rate_bps"] <= 250
     assert suggestion["base_rate_bps"] == 220  # Retail base rate
     
@@ -83,7 +85,8 @@ def test_weak_profile_gets_higher_risk_band(weak_submission):
     suggestion = data[0]
     assert suggestion["id"] == "weak_001"
     # Should get C, D, or E band due to multiple risk factors
-    assert suggestion["band"] in ["C (251-300)", "D (301-360)", "E (>360)"]
+    assert suggestion["band_code"] in ["C", "D", "E"]
+    assert suggestion["band_description"].endswith("risk submissions")
     assert suggestion["suggested_rate_bps"] >= 251
     assert suggestion["base_rate_bps"] == 260  # Manufacturing base rate
     
@@ -249,5 +252,5 @@ def test_batch_pricing():
     # First submission should have lower rate (strong profile)
     # Second submission should have higher rate (weak profile)
     assert data[0]["suggested_rate_bps"] < data[1]["suggested_rate_bps"]
-    assert data[0]["band"] in ["A (<=200)", "B (201-250)"]
-    assert data[1]["band"] in ["C (251-300)", "D (301-360)", "E (>360)"]
+    assert data[0]["band_code"] in ["A", "B"]
+    assert data[1]["band_code"] in ["C", "D", "E"]

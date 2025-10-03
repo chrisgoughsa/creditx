@@ -332,3 +332,17 @@ def test_score_normalization():
     
     # Score should be between 0 and 1
     assert 0 <= score <= 1
+
+
+def test_triage_csv_upload_round_trip():
+    """Test that CSV upload returns triage scores."""
+    csv_bytes = Path("sample_data/submissions.csv").read_bytes()
+    response = client.post(
+        "/triage/underwriting/csv",
+        files={"file": ("submissions.csv", csv_bytes, "text/csv")},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) > 0
+    assert {record["id"] for record in data}

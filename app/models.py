@@ -57,9 +57,13 @@ class TriageScore(BaseModel):
 
 class PriceSuggestion(BaseModel):
     """Pricing suggestion result."""
-    
+
     id: str
-    band: str = Field(description="Risk band (A, B, C, D, E)")
+    band_code: Literal["A", "B", "C", "D", "E"] = Field(
+        description="Risk band code"
+    )
+    band_label: str = Field(description="Human-readable band label")
+    band_description: str = Field(description="Band description for UI copy")
     suggested_rate_bps: int = Field(ge=0, description="Suggested rate in basis points")
     base_rate_bps: int = Field(ge=0, description="Base sector rate in basis points")
     adjustments: List[str] = Field(description="List of adjustments applied")

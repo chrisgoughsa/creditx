@@ -224,7 +224,9 @@ Generate pricing suggestions with risk bands (A-E) and suggested rates in basis 
 [
   {
     "id": "SUB-002",
-    "band": "B",
+    "band_code": "B",
+    "band_label": "201-250 bps",
+    "band_description": "Low risk submissions",
     "suggested_rate_bps": 125,
     "base_rate_bps": 100,
     "adjustments": [

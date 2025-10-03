@@ -51,11 +51,13 @@ def calculate_pricing_suggestions(df: pl.DataFrame) -> pl.DataFrame:
         
         # Determine risk band
         band = price_band(suggested_rate)
-        
+
         results.append({
             "id": row["submission_id"],
             "rate_bps": suggested_rate,
-            "band": band,
+            "band_code": band.code,
+            "band_label": band.label,
+            "band_description": band.description,
             "sector": row["sector"],
             "exposure_limit": row["exposure_limit"],
             "debtor_days": row["debtor_days"],
@@ -90,7 +92,7 @@ def create_pretty_table(df: pl.DataFrame) -> Table:
         table.add_row(
             str(row["id"]),
             str(row["rate_bps"]),
-            str(row["band"]),
+            f"{row['band_code']} ({row['band_label']})",
             str(row["sector"]),
             f"{row['exposure_limit']:,.0f}",
             str(row["debtor_days"]),
@@ -114,10 +116,16 @@ def print_summary_stats(df: pl.DataFrame):
     console.print(f"Average rate: {df['rate_bps'].mean():.1f} bps")
     
     # Band distribution
-    band_counts = df.group_by("band").agg(pl.len().alias("count")).sort("band")
+    band_counts = (
+        df.group_by(["band_code", "band_label"])
+        .agg(pl.len().alias("count"))
+        .sort(["band_code"])
+    )
     console.print(f"\n[bold]Risk Band Distribution:[/bold]")
     for row in band_counts.iter_rows(named=True):
-        console.print(f"  {row['band']}: {row['count']} submissions")
+        console.print(
+            f"  {row['band_code']} ({row['band_label']}): {row['count']} submissions"
+        )
     
     # Sector breakdown
     sector_stats = df.group_by("sector").agg([
@@ -166,7 +174,9 @@ def main():
         # Show some examples of adjustments
         console.print(f"\n[bold]Sample Adjustments:[/bold]")
         for i, row in enumerate(results_df.head(3).iter_rows(named=True)):
-            console.print(f"\n[cyan]{row['id']}[/cyan] ({row['band']}, {row['rate_bps']} bps):")
+            console.print(
+                f"\n[cyan]{row['id']}[/cyan] ({row['band_code']} {row['band_label']}, {row['rate_bps']} bps):"
+            )
             for adjustment in row['adjustments']:
                 console.print(f"  • {adjustment}")
         

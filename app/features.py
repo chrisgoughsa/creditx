@@ -20,9 +20,9 @@ def prepare_submissions_features(submissions: List[Dict[str, Any]]) -> pl.DataFr
     
     # Engineer features with vectorized operations
     df = df.with_columns([
-        # Binary flags for boolean fields
-        pl.col("financials_attached").cast(pl.Int8).alias("financials_attached"),
-        pl.col("has_judgements").cast(pl.Int8).alias("has_judgements"),
+        # Normalize boolean fields
+        pl.col("financials_attached").cast(pl.Boolean).alias("financials_attached"),
+        pl.col("has_judgements").cast(pl.Boolean).alias("has_judgements"),
         
         # Clip numeric fields to reasonable ranges
         pl.col("debtor_days").clip(0, 180).alias("debtor_days"),

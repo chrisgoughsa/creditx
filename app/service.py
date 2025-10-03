@@ -1,23 +1,14 @@
 """Service layer for credit risk assessment and pricing."""
 
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
 import polars as pl
-import yaml
-from pathlib import Path
-from typing import List, Dict, Any
 
-from .features import prepare_submissions_features, prepare_policies_features
-from .pricing import suggest_rate, SECTOR_BASE_RATES
-
-
-def load_weights_config() -> Dict[str, Any]:
-    """Load weights configuration from YAML file."""
-    weights_file = Path(__file__).parent.parent / "weights.yaml"
-    with open(weights_file, 'r') as f:
-        return yaml.safe_load(f)
-
-
-# Load weights configuration
-WEIGHTS_CONFIG = load_weights_config()
+from .config import get_weights_config
+from .features import prepare_policies_features, prepare_submissions_features
+from .pricing import SECTOR_BASE_RATES, price_band, suggest_rate
 
 
 def triage_scores(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
@@ -28,9 +19,9 @@ def triage_scores(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
     
     Returns list of triage scores with reasons and weights version.
     """
-    # Get weights from configuration
-    weights = WEIGHTS_CONFIG["triage_weights"]
-    thresholds = WEIGHTS_CONFIG["thresholds"]
+    config = get_weights_config()
+    weights = config.triage_weights
+    thresholds = config.thresholds
     
     # Normalize exposure limit to 0-1 range (using log scale for better distribution)
     max_exposure = submissions_df["exposure_limit"].max()
@@ -39,12 +30,17 @@ def triage_scores(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
     
     # Calculate weighted scores using vectorized operations
     scores = (
-        weights["exposure_limit"] * ((submissions_df["exposure_limit"] - min_exposure) / exposure_range) +
-        weights["debtor_days"] * (1 - submissions_df["debtor_days"] / thresholds["debtor_days_normalization"]) +
-        weights["financials_attached"] * submissions_df["financials_attached"] +
-        weights["years_trading"] * (submissions_df["years_trading"] / thresholds["years_trading_normalization"]) +
-        weights["broker_hit_rate"] * submissions_df["broker_hit_rate"] +
-        weights["has_judgements"] * (1 - submissions_df["has_judgements"])
+        weights.exposure_limit
+        * ((submissions_df["exposure_limit"] - min_exposure) / exposure_range)
+        + weights.debtor_days
+        * (1 - submissions_df["debtor_days"] / thresholds.debtor_days_normalization)
+        + weights.financials_attached
+        * submissions_df["financials_attached"].cast(pl.Float64)
+        + weights.years_trading
+        * (submissions_df["years_trading"] / thresholds.years_trading_normalization)
+        + weights.broker_hit_rate * submissions_df["broker_hit_rate"]
+        + weights.has_judgements
+        * (1 - submissions_df["has_judgements"].cast(pl.Float64))
     )
     
     # Clip scores to 0-1 range
@@ -83,7 +79,7 @@ def triage_scores(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
     
     return {
         "scores": results,
-        "weights_version": WEIGHTS_CONFIG["version"]
+        "weights_version": config.version,
     }
 
 
@@ -95,9 +91,9 @@ def renewals_priority(policies_df: pl.DataFrame) -> List[Dict[str, Any]]:
     
     Returns list of priority scores with reasons and weights version.
     """
-    # Get weights from configuration
-    weights = WEIGHTS_CONFIG["renewals_weights"]
-    thresholds = WEIGHTS_CONFIG["thresholds"]
+    config = get_weights_config()
+    weights = config.renewals_weights
+    thresholds = config.thresholds
     
     # Calculate weighted priority scores using vectorized operations
     # Clip requested_change_pct to reasonable range for scoring
@@ -107,10 +103,14 @@ def renewals_priority(policies_df: pl.DataFrame) -> List[Dict[str, Any]]:
     )
     
     priorities = (
-        weights["days_to_expiry"] * (1 - policies_df["days_to_expiry"] / 365) +
-        weights["utilization_pct"] * policies_df["utilization_pct"] +
-        weights["claims_ratio_24m"] * (policies_df["claims_ratio_24m"].clip(0, thresholds["claims_ratio_max"]) / thresholds["claims_ratio_max"]) +
-        weights["requested_change_pct"] * (-change_pct_clipped)  # Negative because reduction requests increase priority
+        weights.days_to_expiry * (1 - policies_df["days_to_expiry"] / 365)
+        + weights.utilization_pct * policies_df["utilization_pct"]
+        + weights.claims_ratio_24m
+        * (
+            policies_df["claims_ratio_24m"].clip(0, thresholds.claims_ratio_max)
+            / thresholds.claims_ratio_max
+        )
+        + weights.requested_change_pct * (-change_pct_clipped)
     )
     
     # Clip priorities to 0-1 range
@@ -150,7 +150,7 @@ def renewals_priority(policies_df: pl.DataFrame) -> List[Dict[str, Any]]:
     
     return {
         "scores": results,
-        "weights_version": WEIGHTS_CONFIG["version"]
+        "weights_version": config.version,
     }
 
 
@@ -161,6 +161,7 @@ def pricing_suggestions(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
     Applies suggest_rate function to each submission and returns
     pricing suggestions with risk bands and adjustments.
     """
+    config = get_weights_config()
     results = []
     
     for row in submissions_df.iter_rows(named=True):
@@ -169,14 +170,13 @@ def pricing_suggestions(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
         
         # Get base rate for the sector
         base_rate = SECTOR_BASE_RATES[row["sector"]]
-        
-        # Determine risk band
-        from .pricing import price_band
         band = price_band(suggested_rate)
         
         results.append({
             "id": row["submission_id"],
-            "band": band,
+            "band_code": band.code,
+            "band_label": band.label,
+            "band_description": band.description,
             "suggested_rate_bps": suggested_rate,
             "base_rate_bps": base_rate,
             "adjustments": adjustments
@@ -184,5 +184,5 @@ def pricing_suggestions(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
     
     return {
         "suggestions": results,
-        "weights_version": WEIGHTS_CONFIG["version"]
+        "weights_version": config.version,
     }
