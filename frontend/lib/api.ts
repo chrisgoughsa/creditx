@@ -36,6 +36,26 @@ export const PriceSuggestionSchema = z.object({
   adjustments: z.array(z.string()),
 });
 
+const FeatureImportanceSchema = z.record(z.number());
+
+export const TriageResultsSchema = z.object({
+  scores: z.array(TriageScoreSchema),
+  feature_importance: FeatureImportanceSchema,
+  weights_version: z.string(),
+});
+
+export const RenewalResultsSchema = z.object({
+  scores: z.array(TriageScoreSchema),
+  feature_importance: FeatureImportanceSchema,
+  weights_version: z.string(),
+});
+
+export const PricingResultsSchema = z.object({
+  suggestions: z.array(PriceSuggestionSchema),
+  feature_importance: FeatureImportanceSchema,
+  weights_version: z.string(),
+});
+
 const SubmissionSchema = z.object({
   submission_id: z.string(),
   broker: z.string(),
@@ -65,35 +85,78 @@ const PolicySchema = z.object({
 export type SubmissionInput = z.infer<typeof SubmissionSchema>;
 export type PolicyInput = z.infer<typeof PolicySchema>;
 
-export async function fetchTriageScores(submissions: SubmissionInput[]) {
+export type TriageResults = z.infer<typeof TriageResultsSchema>;
+export type RenewalResults = z.infer<typeof RenewalResultsSchema>;
+export type PricingResults = z.infer<typeof PricingResultsSchema>;
+
+export async function fetchTriageScores(submissions: SubmissionInput[]): Promise<TriageResults> {
   const payload = { submissions };
-  const parsed = z.array(TriageScoreSchema).parse(
-    await request("/triage/underwriting", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    })
-  );
-  return parsed;
+  const data = await request("/triage/underwriting", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  const parsed = TriageResultsSchema.safeParse(data);
+  if (parsed.success) {
+    return parsed.data;
+  }
+
+  const legacy = z.array(TriageScoreSchema).safeParse(data);
+  if (legacy.success) {
+    return {
+      scores: legacy.data,
+      feature_importance: {},
+      weights_version: "legacy",
+    };
+  }
+
+  throw parsed.error;
 }
 
-export async function fetchRenewalPriorities(policies: PolicyInput[]) {
+export async function fetchRenewalPriorities(policies: PolicyInput[]): Promise<RenewalResults> {
   const payload = { policies };
-  const parsed = z.array(TriageScoreSchema).parse(
-    await request("/renewals/priority", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    })
-  );
-  return parsed;
+  const data = await request("/renewals/priority", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  const parsed = RenewalResultsSchema.safeParse(data);
+  if (parsed.success) {
+    return parsed.data;
+  }
+
+  const legacy = z.array(TriageScoreSchema).safeParse(data);
+  if (legacy.success) {
+    return {
+      scores: legacy.data,
+      feature_importance: {},
+      weights_version: "legacy",
+    };
+  }
+
+  throw parsed.error;
 }
 
-export async function fetchPricingSuggestions(submissions: SubmissionInput[]) {
+export async function fetchPricingSuggestions(submissions: SubmissionInput[]): Promise<PricingResults> {
   const payload = { submissions };
-  const parsed = z.array(PriceSuggestionSchema).parse(
-    await request("/pricing/suggest", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    })
-  );
-  return parsed;
+  const data = await request("/pricing/suggest", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+
+  const parsed = PricingResultsSchema.safeParse(data);
+  if (parsed.success) {
+    return parsed.data;
+  }
+
+  const legacy = z.array(PriceSuggestionSchema).safeParse(data);
+  if (legacy.success) {
+    return {
+      suggestions: legacy.data,
+      feature_importance: {},
+      weights_version: "legacy",
+    };
+  }
+
+  throw parsed.error;
 }

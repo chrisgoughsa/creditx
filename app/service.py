@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from collections import Counter
+from typing import Any, Dict
 
 import polars as pl
 
@@ -11,7 +12,7 @@ from .features import prepare_policies_features, prepare_submissions_features
 from .pricing import SECTOR_BASE_RATES, price_band, suggest_rate
 
 
-def triage_scores(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
+def triage_scores(submissions_df: pl.DataFrame) -> Dict[str, Any]:
     """
     Calculate triage scores for submissions based on weighted risk factors.
     
@@ -48,6 +49,7 @@ def triage_scores(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
     
     # Generate reasons for each submission
     results = []
+    reason_counter: Counter[str] = Counter()
     for i, row in enumerate(submissions_df.iter_rows(named=True)):
         reasons = []
         
@@ -76,14 +78,16 @@ def triage_scores(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
             "score": float(scores[i]),
             "reasons": reasons
         })
+        reason_counter.update(reasons)
     
     return {
         "scores": results,
+        "feature_importance": dict(reason_counter.most_common()),
         "weights_version": config.version,
     }
 
 
-def renewals_priority(policies_df: pl.DataFrame) -> List[Dict[str, Any]]:
+def renewals_priority(policies_df: pl.DataFrame) -> Dict[str, Any]:
     """
     Calculate renewal priority scores for policies based on weighted factors.
     
@@ -118,6 +122,7 @@ def renewals_priority(policies_df: pl.DataFrame) -> List[Dict[str, Any]]:
     
     # Generate reasons for each policy
     results = []
+    reason_counter: Counter[str] = Counter()
     for i, row in enumerate(policies_df.iter_rows(named=True)):
         reasons = []
         
@@ -147,14 +152,16 @@ def renewals_priority(policies_df: pl.DataFrame) -> List[Dict[str, Any]]:
             "score": float(priorities[i]),
             "reasons": reasons
         })
+        reason_counter.update(reasons)
     
     return {
         "scores": results,
+        "feature_importance": dict(reason_counter.most_common()),
         "weights_version": config.version,
     }
 
 
-def pricing_suggestions(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
+def pricing_suggestions(submissions_df: pl.DataFrame) -> Dict[str, Any]:
     """
     Generate pricing suggestions for submissions.
     
@@ -163,6 +170,7 @@ def pricing_suggestions(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
     """
     config = get_weights_config()
     results = []
+    adjustment_counter: Counter[str] = Counter()
     
     for row in submissions_df.iter_rows(named=True):
         # Get suggested rate and adjustments
@@ -181,8 +189,10 @@ def pricing_suggestions(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
             "base_rate_bps": base_rate,
             "adjustments": adjustments
         })
+        adjustment_counter.update(adjustments)
     
     return {
         "suggestions": results,
+        "feature_importance": dict(adjustment_counter.most_common()),
         "weights_version": config.version,
     }

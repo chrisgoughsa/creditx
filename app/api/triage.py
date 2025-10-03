@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from typing import List
-
 from fastapi import APIRouter, File, UploadFile
 
 from ..features import prepare_submissions_features
-from ..models import BatchSubmissions, TriageScore
+from ..models import BatchSubmissions, TriageResults
 from ..service import triage_scores
 from .common import (
     SUBMISSION_COLUMNS,
@@ -20,7 +18,7 @@ router = APIRouter()
 
 @router.post(
     "/underwriting",
-    response_model=List[TriageScore],
+    response_model=TriageResults,
     summary="Underwriting Triage",
     description=(
         "Calculate triage scores for credit insurance submissions to prioritize underwriting review. "
@@ -28,17 +26,17 @@ router = APIRouter()
         "broker quality, and risk factors like outstanding judgements."
     ),
 )
-async def triage_underwriting(batch: BatchSubmissions) -> List[TriageScore]:
+async def triage_underwriting(batch: BatchSubmissions) -> TriageResults:
     """Triage submissions for underwriting priority."""
     submissions_data = [submission.model_dump() for submission in batch.submissions]
     submissions_df = prepare_submissions_features(submissions_data)
     result = triage_scores(submissions_df)
-    return [TriageScore(**score) for score in result["scores"]]
+    return TriageResults(**result)
 
 
 @router.post(
     "/underwriting/csv",
-    response_model=List[TriageScore],
+    response_model=TriageResults,
     summary="Underwriting Triage (CSV Upload)",
     description=(
         "Upload CSV file for underwriting triage. CSV must contain columns: submission_id, broker, sector, "
@@ -46,7 +44,7 @@ async def triage_underwriting(batch: BatchSubmissions) -> List[TriageScore]:
         "has_judgements. Boolean fields accept: true/false, 1/0, yes/no, y/n."
     ),
 )
-async def triage_underwriting_csv(file: UploadFile = File(...)) -> List[TriageScore]:
+async def triage_underwriting_csv(file: UploadFile = File(...)) -> TriageResults:
     """Upload CSV for triage scoring."""
     submissions_data = await parse_csv_upload(
         file,
@@ -56,4 +54,4 @@ async def triage_underwriting_csv(file: UploadFile = File(...)) -> List[TriageSc
     )
     submissions_df = prepare_submissions_features(submissions_data)
     result = triage_scores(submissions_df)
-    return [TriageScore(**score) for score in result["scores"]]
+    return TriageResults(**result)

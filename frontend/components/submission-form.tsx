@@ -5,6 +5,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import type { SubmissionInput } from "../lib/api";
+import { Card } from "./ui/card";
+import { Button } from "./ui/button";
 
 const SubmissionFormSchema = z.object({
   submission_id: z.string().min(1, "Required"),
@@ -54,20 +56,21 @@ export function SubmissionForm({ onAdd, defaultValues }: SubmissionFormProps) {
   });
 
   return (
-    <form
-      className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-card"
-      onSubmit={form.handleSubmit((values) => {
-        onAdd({
-          ...values,
-          exposure_limit: Number(values.exposure_limit),
-          debtor_days: Number(values.debtor_days),
-          years_trading: Number(values.years_trading),
-          broker_hit_rate: Number(values.broker_hit_rate),
-          requested_cov_pct: Number(values.requested_cov_pct),
-        });
-        form.reset();
-      })}
-    >
+    <Card>
+      <form
+        className="grid gap-4"
+        onSubmit={form.handleSubmit((values) => {
+          onAdd({
+            ...values,
+            exposure_limit: Number(values.exposure_limit),
+            debtor_days: Number(values.debtor_days),
+            years_trading: Number(values.years_trading),
+            broker_hit_rate: Number(values.broker_hit_rate),
+            requested_cov_pct: Number(values.requested_cov_pct),
+          });
+          form.reset();
+        })}
+      >
       <div className="grid gap-6 sm:grid-cols-2">
         <FormField label="Submission ID" error={form.formState.errors.submission_id?.message}>
           <input
@@ -116,13 +119,11 @@ export function SubmissionForm({ onAdd, defaultValues }: SubmissionFormProps) {
           </label>
         </FormField>
       </div>
-      <button
-        type="submit"
-        className="inline-flex w-full items-center justify-center rounded-full bg-brand-500 px-6 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
-      >
-        Add submission
-      </button>
-    </form>
+        <Button type="submit" className="w-full">
+          Add submission
+        </Button>
+      </form>
+    </Card>
   );
 }
 

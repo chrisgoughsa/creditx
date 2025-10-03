@@ -2,16 +2,20 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { z } from "zod";
 
 import { DataGrid } from "../../../components/data-grid";
 import { PolicyForm } from "../../../components/policy-form";
 import { UploadPanel } from "../../../components/upload-panel";
 import { ReasonsList } from "../../../components/reasons-list";
+import { Button } from "../../../components/ui/button";
+import { Card } from "../../../components/ui/card";
 import type { PolicyInput } from "../../../lib/api";
-import { fetchRenewalPriorities, TriageScoreSchema } from "../../../lib/api";
-
-type RenewalResult = z.infer<typeof TriageScoreSchema>;
+import {
+  fetchRenewalPriorities,
+  RenewalResultsSchema,
+  type RenewalResults,
+} from "../../../lib/api";
+import { usePersistentState } from "../../../hooks/usePersistentState";
 
 const defaultPolicy: PolicyInput = {
   policy_id: "POL-001",
@@ -27,8 +31,11 @@ const defaultPolicy: PolicyInput = {
 };
 
 export default function RenewalsPage() {
-  const [policies, setPolicies] = useState<PolicyInput[]>([defaultPolicy]);
-  const [results, setResults] = useState<RenewalResult[] | null>(null);
+  const [policies, setPolicies, hydrated] = usePersistentState<PolicyInput[]>(
+    "creditx/renewal-policies",
+    [defaultPolicy],
+  );
+  const [results, setResults] = useState<RenewalResults | null>(null);
 
   const mutation = useMutation({
     mutationFn: fetchRenewalPriorities,
@@ -94,6 +101,9 @@ export default function RenewalsPage() {
           Prioritize renewals by expiry, utilization, claims activity, and client requests. Upload a CSV or manage
           policies individually.
         </p>
+        <p className="text-xs text-slate-500">
+          {hydrated ? "Workspace autosaves locally." : "Restoring saved policies…"}
+        </p>
       </header>
 
       <PolicyForm onAdd={handleAdd} />
@@ -101,24 +111,22 @@ export default function RenewalsPage() {
       <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
         <DataGrid columns={columns as never} data={policies} emptyMessage="Add a policy to run scoring." />
         <div className="space-y-4">
-          <button
+          <Button
             type="button"
             onClick={() => mutation.mutate(policies)}
             disabled={policies.length === 0 || mutation.isPending}
-            className="inline-flex w-full items-center justify-center rounded-full bg-brand-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="w-full"
           >
             {mutation.isPending ? "Running priority…" : "Run renewal priority"}
-          </button>
+          </Button>
           <UploadPanel
             label="CSV upload"
             description="Upload renewal portfolio data to score in bulk."
             endpoint="/renewals/priority/csv"
             onComplete={(payload) => {
-              try {
-                const parsed = TriageScoreSchema.array().parse(payload);
-                setResults(parsed);
-              } catch (err) {
-                console.error(err);
+              const parsed = RenewalResultsSchema.safeParse(payload);
+              if (parsed.success) {
+                setResults(parsed.data);
               }
             }}
           />
@@ -130,14 +138,17 @@ export default function RenewalsPage() {
 
       {results ? (
         <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-slate-900">Priority results</h2>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <h2 className="text-xl font-semibold text-slate-900">Priority results</h2>
+            <span className="text-xs text-slate-500">Weights version: {results.weights_version}</span>
+          </div>
           <div className="grid gap-6 md:grid-cols-2">
-            {results.map((result) => (
+            {results.scores.map((result) => (
               <article key={result.id} className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-card">
                 <header className="flex items-center justify-between">
                   <div>
                     <h3 className="text-lg font-semibold text-slate-900">{result.id}</h3>
-                    <p className="text-sm text-slate-500">Score</p>
+                    <p className="text-sm text-slate-500">Priority score</p>
                   </div>
                   <span className="text-3xl font-bold text-brand-600">{result.score.toFixed(2)}</span>
                 </header>
@@ -145,6 +156,19 @@ export default function RenewalsPage() {
               </article>
             ))}
           </div>
+          {Object.keys(results.feature_importance).length ? (
+            <Card className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-800">Top drivers</h3>
+              <ul className="grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+                {Object.entries(results.feature_importance).map(([reason, count]) => (
+                  <li key={reason} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
+                    <span>{reason}</span>
+                    <span className="font-semibold text-slate-800">{count}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
         </div>
       ) : null}
     </section>

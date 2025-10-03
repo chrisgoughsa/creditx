@@ -5,6 +5,8 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import type { PolicyInput } from "../lib/api";
+import { Card } from "./ui/card";
+import { Button } from "./ui/button";
 
 const PolicyFormSchema = z.object({
   policy_id: z.string().min(1, "Required"),
@@ -48,22 +50,23 @@ export function PolicyForm({ onAdd }: { onAdd(policy: PolicyInput): void }) {
   });
 
   return (
-    <form
-      className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-card"
-      onSubmit={form.handleSubmit((values) => {
-        onAdd({
-          ...values,
-          current_premium: Number(values.current_premium),
-          limit: Number(values.limit),
-          utilization_pct: Number(values.utilization_pct),
-          claims_last_24m_cnt: Number(values.claims_last_24m_cnt),
-          claims_ratio_24m: Number(values.claims_ratio_24m),
-          days_to_expiry: Number(values.days_to_expiry),
-          requested_change_pct: Number(values.requested_change_pct),
-        });
-        form.reset();
-      })}
-    >
+    <Card>
+      <form
+        className="grid gap-4"
+        onSubmit={form.handleSubmit((values) => {
+          onAdd({
+            ...values,
+            current_premium: Number(values.current_premium),
+            limit: Number(values.limit),
+            utilization_pct: Number(values.utilization_pct),
+            claims_last_24m_cnt: Number(values.claims_last_24m_cnt),
+            claims_ratio_24m: Number(values.claims_ratio_24m),
+            days_to_expiry: Number(values.days_to_expiry),
+            requested_change_pct: Number(values.requested_change_pct),
+          });
+          form.reset();
+        })}
+      >
       <div className="grid gap-6 sm:grid-cols-2">
         <FormField label="Policy ID" error={form.formState.errors.policy_id?.message}>
           <input className="input" {...form.register("policy_id")} placeholder="POL-001" />
@@ -103,13 +106,11 @@ export function PolicyForm({ onAdd }: { onAdd(policy: PolicyInput): void }) {
           <input className="input" type="number" step="0.01" {...form.register("requested_change_pct")} />
         </FormField>
       </div>
-      <button
-        type="submit"
-        className="inline-flex w-full items-center justify-center rounded-full bg-brand-500 px-6 py-2 text-sm font-semibold text-white transition hover:bg-brand-600"
-      >
-        Add policy
-      </button>
-    </form>
+        <Button type="submit" className="w-full">
+          Add policy
+        </Button>
+      </form>
+    </Card>
   );
 }
 

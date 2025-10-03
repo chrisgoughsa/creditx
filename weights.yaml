@@ -26,6 +26,29 @@ pricing_adjustments:
   high_coverage: 20         # bps (applied if requested_cov_pct > 0.9)
   limited_trading: 30       # bps (applied if years_trading < 2)
 
+broker_score_curves:
+  tier_1:
+    description: "Elite brokers with proven performance"
+    adjustment_bps: -20
+  tier_2:
+    description: "Preferred brokers"
+    adjustment_bps: -10
+  tier_3:
+    description: "Standard brokers"
+    adjustment_bps: 0
+  tier_4:
+    description: "Developing brokers"
+    adjustment_bps: 15
+
+sector_coverage_limits:
+  Retail: 0.9
+  Manufacturing: 0.95
+  Logistics: 0.92
+  Agri: 0.9
+  Services: 0.88
+  Other: 0.9
+  default: 0.9
+
 pricing_bounds:
   min_rate: 120  # bps
   max_rate: 500  # bps

@@ -2,14 +2,16 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import { z } from "zod";
 
 import { PricingCard } from "../../../components/pricing-card";
 import { SubmissionForm } from "../../../components/submission-form";
 import type { SubmissionInput } from "../../../lib/api";
-import { fetchPricingSuggestions, PriceSuggestionSchema } from "../../../lib/api";
+import { fetchPricingSuggestions, type PricingResults } from "../../../lib/api";
 
 import { DataGrid } from "../../../components/data-grid";
+import { Button } from "../../../components/ui/button";
+import { Card } from "../../../components/ui/card";
+import { usePersistentState } from "../../../hooks/usePersistentState";
 
 const defaultSubmission: SubmissionInput = {
   submission_id: "SUB-002",
@@ -24,15 +26,16 @@ const defaultSubmission: SubmissionInput = {
   has_judgements: false,
 };
 
-type PriceSuggestion = z.infer<typeof PriceSuggestionSchema>;
-
 export default function PricingPage() {
-  const [submissions, setSubmissions] = useState<SubmissionInput[]>([defaultSubmission]);
-  const [suggestions, setSuggestions] = useState<PriceSuggestion[] | null>(null);
+  const [submissions, setSubmissions, hydrated] = usePersistentState<SubmissionInput[]>(
+    "creditx/pricing-submissions",
+    [defaultSubmission],
+  );
+  const [results, setResults] = useState<PricingResults | null>(null);
 
   const mutation = useMutation({
     mutationFn: fetchPricingSuggestions,
-    onSuccess: (data) => setSuggestions(data),
+    onSuccess: (data) => setResults(data),
   });
 
   function handleAdd(submission: SubmissionInput) {
@@ -58,6 +61,9 @@ export default function PricingPage() {
         <p className="max-w-3xl text-sm text-slate-600">
           Combine base sector rates with risk adjustments to generate indicative pricing suggestions for each
           submission.
+        </p>
+        <p className="text-xs text-slate-500">
+          {hydrated ? "Workspace autosaves locally." : "Restoring saved submissions…"}
         </p>
       </header>
 
@@ -101,28 +107,44 @@ export default function PricingPage() {
           emptyMessage="Add at least one submission to get pricing suggestions."
         />
         <div className="space-y-4">
-          <button
+          <Button
             type="button"
             onClick={() => mutation.mutate(submissions)}
             disabled={submissions.length === 0 || mutation.isPending}
-            className="inline-flex w-full items-center justify-center rounded-full bg-brand-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="w-full"
           >
             {mutation.isPending ? "Calculating…" : "Generate pricing"}
-          </button>
+          </Button>
           {mutation.isError ? (
             <p className="text-sm text-red-500">{(mutation.error as Error).message}</p>
           ) : null}
         </div>
       </div>
 
-      {suggestions ? (
+      {results ? (
         <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-slate-900">Pricing suggestions</h2>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <h2 className="text-xl font-semibold text-slate-900">Pricing suggestions</h2>
+            <span className="text-xs text-slate-500">Weights version: {results.weights_version}</span>
+          </div>
           <div className="grid gap-6 md:grid-cols-2">
-            {suggestions.map((suggestion) => (
+            {results.suggestions.map((suggestion) => (
               <PricingCard key={suggestion.id} suggestion={suggestion} />
             ))}
           </div>
+          {Object.keys(results.feature_importance).length ? (
+            <Card className="space-y-3">
+              <h3 className="text-sm font-semibold text-slate-800">Most common adjustments</h3>
+              <ul className="grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
+                {Object.entries(results.feature_importance).map(([adjustment, count]) => (
+                  <li key={adjustment} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
+                    <span>{adjustment}</span>
+                    <span className="font-semibold text-slate-800">{count}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
         </div>
       ) : null}
     </section>

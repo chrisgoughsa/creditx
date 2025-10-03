@@ -1,6 +1,6 @@
 """Pydantic models for credit risk assessment and pricing system."""
 
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -67,3 +67,54 @@ class PriceSuggestion(BaseModel):
     suggested_rate_bps: int = Field(ge=0, description="Suggested rate in basis points")
     base_rate_bps: int = Field(ge=0, description="Base sector rate in basis points")
     adjustments: List[str] = Field(description="List of adjustments applied")
+
+
+class TriageResults(BaseModel):
+    """Triage batch response."""
+
+    scores: List[TriageScore]
+    feature_importance: Dict[str, int]
+    weights_version: str
+
+
+class RenewalResults(BaseModel):
+    """Renewal priority batch response."""
+
+    scores: List[TriageScore]
+    feature_importance: Dict[str, int]
+    weights_version: str
+
+
+class PricingResults(BaseModel):
+    """Pricing suggestions batch response."""
+
+    suggestions: List[PriceSuggestion]
+    feature_importance: Dict[str, int]
+    weights_version: str
+
+
+class PolicyCheckRequest(BaseModel):
+    """Policy coverage validation request."""
+
+    sector: Literal["Retail", "Manufacturing", "Logistics", "Agri", "Services", "Other"]
+    requested_cov_pct: float = Field(ge=0, le=1)
+
+
+class PolicyCheckResponse(BaseModel):
+    """Policy coverage validation response."""
+
+    allowed: bool
+    sector: str
+    requested_cov_pct: float
+    max_allowed_cov_pct: float
+
+
+class ConfigResponse(BaseModel):
+    """Current configuration view."""
+
+    version: str
+    pricing_adjustments: Dict[str, int]
+    pricing_bounds: Dict[str, int]
+    thresholds: Dict[str, float]
+    broker_score_curves: Dict[str, Dict[str, Union[str, int]]]
+    sector_coverage_limits: Dict[str, float]

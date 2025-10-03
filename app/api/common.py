@@ -127,25 +127,33 @@ async def parse_csv_upload(
     except UnicodeDecodeError as exc:
         raise HTTPException(status_code=400, detail="CSV file must be UTF-8 encoded") from exc
 
-    reader = csv.DictReader(wrapper)
-    if reader.fieldnames is None:
+    try:
+        reader = csv.DictReader(wrapper)
+        headers = reader.fieldnames
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="CSV file must be UTF-8 encoded") from exc
+
+    if headers is None:
         raise HTTPException(status_code=400, detail="CSV file is empty or missing a header row")
 
-    validate_csv_columns(reader.fieldnames, required_columns, file_type)
+    validate_csv_columns(headers, required_columns, file_type)
 
     records: List[Dict[str, Any]] = []
-    for index, row in enumerate(reader, start=1):
-        if not row:
-            continue
-        try:
-            records.append(row_converter(row))
-        except (ValueError, KeyError) as exc:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Error parsing row {index}: {exc}. Please check data types and required fields."
-                ),
-            ) from exc
+    try:
+        for index, row in enumerate(reader, start=1):
+            if not row:
+                continue
+            try:
+                records.append(row_converter(row))
+            except (ValueError, KeyError) as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Error parsing row {index}: {exc}. Please check data types and required fields."
+                    ),
+                ) from exc
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="CSV file must be UTF-8 encoded") from exc
 
     if not records:
         raise HTTPException(status_code=400, detail="CSV file is empty or has no data rows")

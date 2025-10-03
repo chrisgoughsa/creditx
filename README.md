@@ -47,6 +47,14 @@ uv run typecheck        # Run type checking with mypy
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
+Frontend linting and tests:
+
+```bash
+cd frontend
+npm run lint
+npm run test
+```
+
 ## Frontend Workspace
 
 The `frontend/` directory ships with a Next.js 14 dashboard for running triage, renewal, and pricing workflows.
@@ -291,6 +299,16 @@ curl -X POST "http://localhost:8000/triage/underwriting/csv" \
 curl -X POST "http://localhost:8000/renewals/priority/csv" \
   -F "file=@sample_data/renewals.csv"
 ```
+
+### Administration
+- **POST** `/admin/reload-weights` - Reload weights configuration from `weights.yaml`
+- **GET** `/config/current` - Inspect active weights, thresholds, and broker score curves
+- **POST** `/policy/check` - Validate sector coverage requests against configured limits
+
+### Feature Importance
+
+Batch responses for triage, renewals, and pricing now include `feature_importance` maps that count how often
+each heuristic or adjustment fired. These aggregates help prioritise which drivers influenced the batch results.
 
 ## Data Models
 

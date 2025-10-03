@@ -71,21 +71,23 @@ def test_complete_docs_higher_score():
         json={"submissions": [with_docs]}
     )
     assert response1.status_code == 200
-    score_with_docs = response1.json()[0]["score"]
-    
+    data_with_docs = response1.json()
+    score_with_docs = data_with_docs["scores"][0]["score"]
+
     # Test without docs
     response2 = client.post(
         "/triage/underwriting",
         json={"submissions": [without_docs]}
     )
     assert response2.status_code == 200
-    score_without_docs = response2.json()[0]["score"]
+    data_without_docs = response2.json()
+    score_without_docs = data_without_docs["scores"][0]["score"]
     
     # Score with docs should be higher
     assert score_with_docs > score_without_docs
     
     # Check that reasons include financial statements
-    reasons_with_docs = response1.json()[0]["reasons"]
+    reasons_with_docs = data_with_docs["scores"][0]["reasons"]
     assert "Financial statements provided" in reasons_with_docs
 
 
@@ -114,22 +116,24 @@ def test_shorter_debtor_days_higher_score():
         json={"submissions": [short_days]}
     )
     assert response1.status_code == 200
-    score_short = response1.json()[0]["score"]
-    
+    data_short = response1.json()
+    score_short = data_short["scores"][0]["score"]
+
     # Test long debtor days
     response2 = client.post(
         "/triage/underwriting",
         json={"submissions": [long_days]}
     )
     assert response2.status_code == 200
-    score_long = response2.json()[0]["score"]
+    data_long = response2.json()
+    score_long = data_long["scores"][0]["score"]
     
     # Score with short debtor days should be higher
     assert score_short > score_long
     
     # Check reasons
-    reasons_short = response1.json()[0]["reasons"]
-    reasons_long = response2.json()[0]["reasons"]
+    reasons_short = data_short["scores"][0]["reasons"]
+    reasons_long = data_long["scores"][0]["reasons"]
     assert "Short debtor days" in reasons_short
     # Long debtor days might not trigger warning if other factors are good
     # Just verify the score difference
@@ -141,12 +145,11 @@ def test_high_priority_submission_scoring(high_priority_submission):
         "/triage/underwriting",
         json={"submissions": [high_priority_submission]}
     )
-    
+
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
-    
-    triage = data[0]
+    assert len(data["scores"]) == 1
+    triage = data["scores"][0]
     assert triage["id"] == "high_001"
     assert triage["score"] > 0.6  # Should be high score
     
@@ -164,12 +167,11 @@ def test_low_priority_submission_scoring(low_priority_submission):
         "/triage/underwriting",
         json={"submissions": [low_priority_submission]}
     )
-    
+
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
-    
-    triage = data[0]
+    assert len(data["scores"]) == 1
+    triage = data["scores"][0]
     assert triage["id"] == "low_001"
     assert triage["score"] < 0.5  # Should be low score
     
@@ -205,7 +207,7 @@ def test_judgements_lower_score():
         json={"submissions": [no_judgements]}
     )
     assert response1.status_code == 200
-    score_no_judgements = response1.json()[0]["score"]
+    score_no_judgements = response1.json()["scores"][0]["score"]
     
     # Test with judgements
     response2 = client.post(
@@ -213,13 +215,14 @@ def test_judgements_lower_score():
         json={"submissions": [with_judgements]}
     )
     assert response2.status_code == 200
-    score_with_judgements = response2.json()[0]["score"]
+    reasons_payload = response2.json()
+    score_with_judgements = reasons_payload["scores"][0]["score"]
     
     # Score without judgements should be higher
     assert score_no_judgements > score_with_judgements
     
     # Check that judgements warning is in reasons
-    reasons_with_judgements = response2.json()[0]["reasons"]
+    reasons_with_judgements = reasons_payload["scores"][0]["reasons"]
     assert "Outstanding judgements warning" in reasons_with_judgements
 
 
@@ -248,7 +251,7 @@ def test_broker_quality_affects_score():
         json={"submissions": [good_broker]}
     )
     assert response1.status_code == 200
-    score_good_broker = response1.json()[0]["score"]
+    score_good_broker = response1.json()["scores"][0]["score"]
     
     # Test poor broker
     response2 = client.post(
@@ -256,7 +259,7 @@ def test_broker_quality_affects_score():
         json={"submissions": [poor_broker]}
     )
     assert response2.status_code == 200
-    score_poor_broker = response2.json()[0]["score"]
+    score_poor_broker = response2.json()["scores"][0]["score"]
     
     # Score with good broker should be higher
     assert score_good_broker > score_poor_broker
@@ -298,13 +301,13 @@ def test_batch_triage():
     
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2
+    assert len(data["scores"]) == 2
     
     # First submission should have higher score (strong profile)
     # Second submission should have lower score (weak profile)
-    assert data[0]["score"] > data[1]["score"]
-    assert data[0]["id"] == "batch_001"
-    assert data[1]["id"] == "batch_002"
+    assert data["scores"][0]["score"] > data["scores"][1]["score"]
+    assert data["scores"][0]["id"] == "batch_001"
+    assert data["scores"][1]["id"] == "batch_002"
 
 
 def test_score_normalization():
@@ -328,7 +331,7 @@ def test_score_normalization():
     )
     
     assert response.status_code == 200
-    score = response.json()[0]["score"]
+    score = response.json()["scores"][0]["score"]
     
     # Score should be between 0 and 1
     assert 0 <= score <= 1
@@ -343,6 +346,34 @@ def test_triage_csv_upload_round_trip():
     )
 
     assert response.status_code == 200
-    data = response.json()
-    assert len(data) > 0
-    assert {record["id"] for record in data}
+    payload = response.json()
+    assert len(payload["scores"]) > 0
+    assert {record["id"] for record in payload["scores"]}
+    assert isinstance(payload["feature_importance"], dict)
+
+
+def test_triage_csv_missing_required_column():
+    """CSV upload should return 400 when required columns are missing."""
+    csv_content = "submission_id,broker\nSUB-404,MissingBroker"
+    response = client.post(
+        "/triage/underwriting/csv",
+        files={"file": ("broken.csv", csv_content, "text/csv")},
+    )
+
+    assert response.status_code == 400
+    detail = response.json()["detail"]
+    assert "Missing required columns" in detail
+
+
+def test_triage_feature_importance_counts(high_priority_submission, low_priority_submission):
+    """Feature importance should aggregate reasons across submissions."""
+    response = client.post(
+        "/triage/underwriting",
+        json={"submissions": [high_priority_submission, low_priority_submission]},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    importance = payload["feature_importance"]
+    assert "Short debtor days" in importance
+    assert isinstance(importance["Short debtor days"], int)

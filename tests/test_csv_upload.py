@@ -40,13 +40,14 @@ def test_valid_submissions_csv_upload(valid_submissions_csv):
     
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2
+    assert len(data["scores"]) == 2
     
     # Check that we get triage scores
-    assert all("id" in item for item in data)
-    assert all("score" in item for item in data)
-    assert all("reasons" in item for item in data)
-    assert all(0 <= item["score"] <= 1 for item in data)
+    assert all("id" in item for item in data["scores"])
+    assert all("score" in item for item in data["scores"])
+    assert all("reasons" in item for item in data["scores"])
+    assert all(0 <= item["score"] <= 1 for item in data["scores"])
+    assert isinstance(data["feature_importance"], dict)
 
 
 def test_valid_policies_csv_upload(valid_policies_csv):
@@ -60,13 +61,14 @@ def test_valid_policies_csv_upload(valid_policies_csv):
     
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2
+    assert len(data["scores"]) == 2
     
     # Check that we get priority scores
-    assert all("id" in item for item in data)
-    assert all("score" in item for item in data)
-    assert all("reasons" in item for item in data)
-    assert all(0 <= item["score"] <= 1 for item in data)
+    assert all("id" in item for item in data["scores"])
+    assert all("score" in item for item in data["scores"])
+    assert all("reasons" in item for item in data["scores"])
+    assert all(0 <= item["score"] <= 1 for item in data["scores"])
+    assert isinstance(data["feature_importance"], dict)
 
 
 def test_missing_required_columns_submissions():
@@ -240,7 +242,8 @@ def test_large_csv_file():
     
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 100
+    assert len(data["scores"]) == 100
+    assert data["feature_importance"]
 
 
 def test_mixed_case_boolean_values():
@@ -276,7 +279,7 @@ sub001,PremiumBroker,Retail,1000000.0,45.0,true,8.0,0.85,0.75,false,ignored1,ign
     
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 1
+    assert len(data["scores"]) == 1
 
 
 def test_malformed_csv():

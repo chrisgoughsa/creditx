@@ -54,10 +54,9 @@ def test_strong_profile_gets_low_risk_band(strong_submission):
     )
     
     assert response.status_code == 200
-    data = response.json()
-    assert len(data) == 1
-    
-    suggestion = data[0]
+    payload = response.json()
+    assert len(payload["suggestions"]) == 1
+    suggestion = payload["suggestions"][0]
     assert suggestion["id"] == "strong_001"
     assert suggestion["band_code"] in ["A", "B"]
     assert suggestion["band_label"] in ["<=200 bps", "201-250 bps"]
@@ -79,10 +78,9 @@ def test_weak_profile_gets_higher_risk_band(weak_submission):
     )
     
     assert response.status_code == 200
-    data = response.json()
-    assert len(data) == 1
-    
-    suggestion = data[0]
+    payload = response.json()
+    assert len(payload["suggestions"]) == 1
+    suggestion = payload["suggestions"][0]
     assert suggestion["id"] == "weak_001"
     # Should get C, D, or E band due to multiple risk factors
     assert suggestion["band_code"] in ["C", "D", "E"]
@@ -124,7 +122,7 @@ def test_judgements_significantly_increase_rate():
         json={"submissions": [base_submission]}
     )
     assert response1.status_code == 200
-    rate_without = response1.json()[0]["suggested_rate_bps"]
+    rate_without = response1.json()["suggestions"][0]["suggested_rate_bps"]
     
     # Test with judgements
     response2 = client.post(
@@ -132,7 +130,7 @@ def test_judgements_significantly_increase_rate():
         json={"submissions": [with_judgements]}
     )
     assert response2.status_code == 200
-    rate_with = response2.json()[0]["suggested_rate_bps"]
+    rate_with = response2.json()["suggestions"][0]["suggested_rate_bps"]
     
     # Rate with judgements should be 60 bps higher (as per pricing logic)
     assert rate_with == rate_without + 60
@@ -163,7 +161,7 @@ def test_long_debtor_days_increase_rate():
         json={"submissions": [short_days]}
     )
     assert response1.status_code == 200
-    rate_short = response1.json()[0]["suggested_rate_bps"]
+    rate_short = response1.json()["suggestions"][0]["suggested_rate_bps"]
     
     # Test long debtor days
     response2 = client.post(
@@ -171,7 +169,7 @@ def test_long_debtor_days_increase_rate():
         json={"submissions": [long_days]}
     )
     assert response2.status_code == 200
-    rate_long = response2.json()[0]["suggested_rate_bps"]
+    rate_long = response2.json()["suggestions"][0]["suggested_rate_bps"]
     
     # Rate with long debtor days should be 25 bps higher
     assert rate_long == rate_short + 25
@@ -199,7 +197,8 @@ def test_rate_clipping():
     )
     
     assert response.status_code == 200
-    suggestion = response.json()[0]
+    payload = response.json()
+    suggestion = payload["suggestions"][0]
     
     # Rate should be high due to multiple risk factors
     assert suggestion["suggested_rate_bps"] >= 400  # High rate due to multiple risk factors
@@ -246,11 +245,26 @@ def test_batch_pricing():
     )
     
     assert response.status_code == 200
-    data = response.json()
-    assert len(data) == 2
+    payload = response.json()
+    assert len(payload["suggestions"]) == 2
     
     # First submission should have lower rate (strong profile)
     # Second submission should have higher rate (weak profile)
-    assert data[0]["suggested_rate_bps"] < data[1]["suggested_rate_bps"]
-    assert data[0]["band_code"] in ["A", "B"]
-    assert data[1]["band_code"] in ["C", "D", "E"]
+    first, second = payload["suggestions"]
+    assert first["suggested_rate_bps"] < second["suggested_rate_bps"]
+    assert first["band_code"] in ["A", "B"]
+    assert second["band_code"] in ["C", "D", "E"]
+    assert isinstance(payload["feature_importance"], dict)
+
+
+def test_pricing_feature_importance(strong_submission, weak_submission):
+    """Feature importance returns adjustment hit counts."""
+    response = client.post(
+        "/pricing/suggest",
+        json={"submissions": [strong_submission, weak_submission]},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    importance = payload["feature_importance"]
+    assert any("Financials attached" in key for key in importance)

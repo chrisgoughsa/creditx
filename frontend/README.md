@@ -33,3 +33,4 @@ A modern Next.js 14 dashboard for interacting with the CreditX underwriting, ren
 - `npm run build` – production build
 - `npm run start` – run the production build locally
 - `npm run lint` – lint with Next.js ESLint configuration
+- `npm run test` – run Vitest unit tests

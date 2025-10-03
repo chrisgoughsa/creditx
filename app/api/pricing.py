@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from typing import List
-
 from fastapi import APIRouter
 
 from ..features import prepare_submissions_features
-from ..models import BatchSubmissions, PriceSuggestion
+from ..models import BatchSubmissions, PricingResults
 from ..service import pricing_suggestions
 
 router = APIRouter()
@@ -15,16 +13,16 @@ router = APIRouter()
 
 @router.post(
     "/suggest",
-    response_model=List[PriceSuggestion],
+    response_model=PricingResults,
     summary="Pricing Suggestions",
     description=(
         "Generate pricing suggestions for credit insurance submissions based on sector rates and risk adjustments. "
         "Returns suggested rates in basis points, risk bands, and detailed adjustments applied to the base sector rate."
     ),
 )
-async def pricing_suggest(batch: BatchSubmissions) -> List[PriceSuggestion]:
+async def pricing_suggest(batch: BatchSubmissions) -> PricingResults:
     """Generate pricing suggestions for submissions."""
     submissions_data = [submission.model_dump() for submission in batch.submissions]
     submissions_df = prepare_submissions_features(submissions_data)
     result = pricing_suggestions(submissions_df)
-    return [PriceSuggestion(**suggestion) for suggestion in result["suggestions"]]
+    return PricingResults(**result)
