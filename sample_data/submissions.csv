@@ -1,0 +1,12 @@
+submission_id,broker,sector,exposure_limit,debtor_days,financials_attached,years_trading,broker_hit_rate,requested_cov_pct,has_judgements
+SUB-001,ABC Insurance,Manufacturing,1000000.0,45.0,true,5.0,0.85,0.8,false
+SUB-002,DEF Brokers,Logistics,500000.0,60.0,true,8.0,0.92,0.9,false
+SUB-003,GHI Partners,Retail,2500000.0,30.0,false,3.0,0.65,0.7,true
+SUB-004,JKL Associates,Agri,750000.0,90.0,true,12.0,0.88,0.85,false
+SUB-005,MNO Insurance,Services,1500000.0,75.0,true,6.0,0.78,0.75,false
+SUB-006,PQR Brokers,Manufacturing,2000000.0,120.0,false,2.0,0.45,0.6,true
+SUB-007,STU Partners,Logistics,800000.0,50.0,true,10.0,0.95,0.8,false
+SUB-008,VWX Associates,Retail,1200000.0,35.0,true,4.0,0.72,0.65,false
+SUB-009,YZA Insurance,Agri,3000000.0,105.0,false,15.0,0.82,0.9,false
+SUB-010,BCD Brokers,Services,600000.0,25.0,true,7.0,0.91,0.7,false
+

@@ -1,0 +1,12 @@
+policy_id,sector,current_premium,limit,utilization_pct,claims_last_24m_cnt,claims_ratio_24m,days_to_expiry,requested_change_pct,broker
+POL-001,Retail,50000.0,2000000.0,0.65,2,0.15,30.0,-0.1,XYZ Brokers
+POL-002,Manufacturing,125000.0,5000000.0,0.45,0,0.0,90.0,0.05,ABC Insurance
+POL-003,Logistics,75000.0,3000000.0,0.80,1,0.08,15.0,-0.15,DEF Brokers
+POL-004,Agri,200000.0,8000000.0,0.30,3,0.25,60.0,0.0,GHI Partners
+POL-005,Services,40000.0,1500000.0,0.70,0,0.0,120.0,-0.05,JKL Associates
+POL-006,Retail,90000.0,4000000.0,0.55,1,0.12,45.0,0.1,MNO Insurance
+POL-007,Manufacturing,180000.0,6000000.0,0.35,2,0.18,75.0,-0.08,PQR Brokers
+POL-008,Logistics,60000.0,2500000.0,0.85,0,0.0,20.0,-0.12,STU Partners
+POL-009,Agri,150000.0,7000000.0,0.40,1,0.10,100.0,0.02,VWX Associates
+POL-010,Services,35000.0,1200000.0,0.60,0,0.0,150.0,-0.03,YZA Insurance
+
