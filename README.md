@@ -71,6 +71,32 @@ By default the UI targets `http://localhost:8000`. Override via `frontend/.env.l
 NEXT_PUBLIC_CREDITX_API=http://your-api-host
 ```
 
+## Development Workflow
+
+When contributing changes, create a feature branch from `work` to keep commits scoped and reviewable:
+
+```bash
+git checkout work
+git pull
+git checkout -b feature/my-change
+```
+
+After switching to the new branch, stage and commit files with clear, descriptive messages:
+
+```bash
+git status
+git add README.md
+git commit -m "Update development workflow guidance"
+```
+
+Once your commits are ready, publish the branch and open a pull request:
+
+```bash
+git push -u origin feature/my-change
+```
+
+Opening pull requests from topic branches helps maintain a clean history while enabling collaborative reviews.
+
 ## API Endpoints
 
 ### Health Check
