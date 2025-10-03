@@ -293,7 +293,30 @@ async def renewals_priority_csv(file: UploadFile = File(...)) -> List[TriageScor
         raise HTTPException(status_code=400, detail=f"Error processing CSV file: {str(e)}")
 
 
-@app.get("/", summary="Health Check", description="Simple health check endpoint")
+@app.get("/", summary="Root", description="API root endpoint")
 async def root():
-    """Health check endpoint."""
-    return {"message": "CreditX API is running", "version": "1.0.0"}
+    """API root endpoint."""
+    return {"message": "CreditX API", "version": "1.0.0"}
+
+
+@app.get("/health", summary="Health Check", description="Health check endpoint for monitoring")
+async def health():
+    """Health check endpoint for monitoring and load balancers."""
+    return {
+        "status": "healthy",
+        "message": "CreditX API is running",
+        "version": "1.0.0",
+        "timestamp": "2025-01-03T00:00:00Z"
+    }
+
+
+@app.get("/version", summary="Version", description="Get API version information")
+async def version():
+    """Get API version and build information."""
+    return {
+        "version": "1.0.0",
+        "api_name": "CreditX API",
+        "description": "Credit risk assessment and pricing system for insurance submissions and renewals",
+        "build_date": "2025-01-03",
+        "weights_version": "1.0.0"
+    }
