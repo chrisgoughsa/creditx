@@ -1,6 +1,19 @@
 """Pricing logic for credit insurance submissions."""
 
+import yaml
+from pathlib import Path
 from typing import Dict, List, Tuple
+
+
+def load_weights_config() -> Dict[str, any]:
+    """Load weights configuration from YAML file."""
+    weights_file = Path(__file__).parent.parent / "weights.yaml"
+    with open(weights_file, 'r') as f:
+        return yaml.safe_load(f)
+
+
+# Load weights configuration
+WEIGHTS_CONFIG = load_weights_config()
 
 
 # Base sector rates in basis points (bps)
@@ -43,17 +56,16 @@ def suggest_rate(submission_row: Dict) -> Tuple[int, List[str]]:
     
     Heuristics:
     - Start with sector base rate
-    - Apply adjustments based on risk factors
-    - Clip final rate between 120-500 bps
+    - Apply adjustments based on risk factors from weights.yaml configuration
+    - Clip final rate between configured bounds
     
-    Adjustments:
-    - -15 bps if financials_attached (reduces uncertainty)
-    - -10 bps if broker_hit_rate >= 0.5 (proven track record)
-    - +25 bps if debtor_days > 75 (higher credit risk)
-    - +60 bps if has_judgements (significant risk factor)
-    - +20 bps if requested_cov_pct > 0.9 (high coverage request)
-    - +30 bps if years_trading < 2 (inexperienced business)
+    Adjustments are loaded from weights.yaml configuration.
     """
+    # Get configuration
+    adjustments_config = WEIGHTS_CONFIG["pricing_adjustments"]
+    bounds = WEIGHTS_CONFIG["pricing_bounds"]
+    thresholds = WEIGHTS_CONFIG["thresholds"]
+    
     # Start with sector base rate
     base_rate = SECTOR_BASE_RATES[submission_row["sector"]]
     rate = base_rate
@@ -61,36 +73,36 @@ def suggest_rate(submission_row: Dict) -> Tuple[int, List[str]]:
     
     # Apply risk-based adjustments
     if submission_row["financials_attached"]:
-        rate -= 15
-        adjustments.append("Financials attached (-15 bps)")
+        rate += adjustments_config["financials_attached"]
+        adjustments.append(f"Financials attached ({adjustments_config['financials_attached']:+d} bps)")
     
-    if submission_row["broker_hit_rate"] >= 0.5:
-        rate -= 10
-        adjustments.append("Good broker track record (-10 bps)")
+    if submission_row["broker_hit_rate"] >= thresholds["broker_hit_rate_min"]:
+        rate += adjustments_config["broker_hit_rate"]
+        adjustments.append(f"Good broker track record ({adjustments_config['broker_hit_rate']:+d} bps)")
     
-    if submission_row["debtor_days"] > 75:
-        rate += 25
-        adjustments.append("High debtor days (+25 bps)")
+    if submission_row["debtor_days"] > thresholds["debtor_days_max"]:
+        rate += adjustments_config["debtor_days"]
+        adjustments.append(f"High debtor days (+{adjustments_config['debtor_days']} bps)")
     
     if submission_row["has_judgements"]:
-        rate += 60
-        adjustments.append("Outstanding judgements (+60 bps)")
+        rate += adjustments_config["has_judgements"]
+        adjustments.append(f"Outstanding judgements (+{adjustments_config['has_judgements']} bps)")
     
-    if submission_row["requested_cov_pct"] > 0.9:
-        rate += 20
-        adjustments.append("High coverage request (+20 bps)")
+    if submission_row["requested_cov_pct"] > thresholds["high_coverage_min"]:
+        rate += adjustments_config["high_coverage"]
+        adjustments.append(f"High coverage request (+{adjustments_config['high_coverage']} bps)")
     
-    if submission_row["years_trading"] < 2:
-        rate += 30
-        adjustments.append("Limited trading history (+30 bps)")
+    if submission_row["years_trading"] < thresholds["limited_trading_max"]:
+        rate += adjustments_config["limited_trading"]
+        adjustments.append(f"Limited trading history (+{adjustments_config['limited_trading']} bps)")
     
-    # Clip rate to reasonable bounds (120-500 bps)
-    rate = max(120, min(500, rate))
+    # Clip rate to configured bounds
+    rate = max(bounds["min_rate"], min(bounds["max_rate"], rate))
     
     # Add clipping note if rate was adjusted
-    if rate == 120:
-        adjustments.append("Rate clipped to minimum (120 bps)")
-    elif rate == 500:
-        adjustments.append("Rate clipped to maximum (500 bps)")
+    if rate == bounds["min_rate"]:
+        adjustments.append(f"Rate clipped to minimum ({bounds['min_rate']} bps)")
+    elif rate == bounds["max_rate"]:
+        adjustments.append(f"Rate clipped to maximum ({bounds['max_rate']} bps)")
     
     return rate, adjustments

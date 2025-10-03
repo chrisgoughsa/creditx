@@ -1,0 +1,43 @@
+# Credit Risk Assessment Weights Configuration
+# Version: 1.0.0
+# Last Updated: 2025-01-03
+
+version: "1.0.0"
+
+triage_weights:
+  exposure_limit: 0.25
+  debtor_days: 0.20
+  financials_attached: 0.15
+  years_trading: 0.15
+  broker_hit_rate: 0.15
+  has_judgements: 0.10
+
+renewals_weights:
+  days_to_expiry: 0.35
+  utilization_pct: 0.25
+  claims_ratio_24m: 0.25
+  requested_change_pct: 0.15
+
+pricing_adjustments:
+  financials_attached: -15  # bps
+  broker_hit_rate: -10      # bps (applied if >= 0.5)
+  debtor_days: 25           # bps (applied if > 75)
+  has_judgements: 60        # bps
+  high_coverage: 20         # bps (applied if requested_cov_pct > 0.9)
+  limited_trading: 30       # bps (applied if years_trading < 2)
+
+pricing_bounds:
+  min_rate: 120  # bps
+  max_rate: 500  # bps
+
+# Thresholds for applying adjustments
+thresholds:
+  broker_hit_rate_min: 0.5
+  debtor_days_max: 75
+  high_coverage_min: 0.9
+  limited_trading_max: 2
+  debtor_days_normalization: 180
+  years_trading_normalization: 30
+  claims_ratio_max: 2
+  change_pct_min: -0.3
+  change_pct_max: 0.3
