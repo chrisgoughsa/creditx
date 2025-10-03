@@ -118,10 +118,10 @@ async def triage_underwriting(batch: BatchSubmissions) -> List[TriageScore]:
     submissions_df = prepare_submissions_features(submissions_data)
     
     # Calculate triage scores
-    scores = triage_scores(submissions_df)
+    result = triage_scores(submissions_df)
     
     # Convert to response models
-    return [TriageScore(**score) for score in scores]
+    return [TriageScore(**score) for score in result["scores"]]
 
 
 @app.post(
@@ -145,10 +145,10 @@ async def renewals_priority_endpoint(batch: BatchPolicies) -> List[TriageScore]:
     policies_df = prepare_policies_features(policies_data)
     
     # Calculate renewal priorities
-    priorities = renewals_priority(policies_df)
+    result = renewals_priority(policies_df)
     
     # Convert to response models (reusing TriageScore for consistency)
-    return [TriageScore(**priority) for priority in priorities]
+    return [TriageScore(**priority) for priority in result["scores"]]
 
 
 @app.post(
@@ -173,10 +173,10 @@ async def pricing_suggest(batch: BatchSubmissions) -> List[PriceSuggestion]:
     submissions_df = prepare_submissions_features(submissions_data)
     
     # Generate pricing suggestions
-    suggestions = pricing_suggestions(submissions_df)
+    result = pricing_suggestions(submissions_df)
     
     # Convert to response models
-    return [PriceSuggestion(**suggestion) for suggestion in suggestions]
+    return [PriceSuggestion(**suggestion) for suggestion in result["suggestions"]]
 
 
 @app.post(
@@ -225,10 +225,10 @@ async def triage_underwriting_csv(file: UploadFile = File(...)) -> List[TriageSc
         
         # Prepare features and calculate triage scores
         submissions_df = prepare_submissions_features(submissions_data)
-        scores = triage_scores(submissions_df)
+        result = triage_scores(submissions_df)
         
         # Convert to response models
-        return [TriageScore(**score) for score in scores]
+        return [TriageScore(**score) for score in result["scores"]]
         
     except UnicodeDecodeError:
         raise HTTPException(status_code=400, detail="CSV file must be UTF-8 encoded")
@@ -282,10 +282,10 @@ async def renewals_priority_csv(file: UploadFile = File(...)) -> List[TriageScor
         
         # Prepare features and calculate renewal priorities
         policies_df = prepare_policies_features(policies_data)
-        priorities = renewals_priority(policies_df)
+        result = renewals_priority(policies_df)
         
         # Convert to response models (reusing TriageScore for consistency)
-        return [TriageScore(**priority) for priority in priorities]
+        return [TriageScore(**priority) for priority in result["scores"]]
         
     except UnicodeDecodeError:
         raise HTTPException(status_code=400, detail="CSV file must be UTF-8 encoded")

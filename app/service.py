@@ -1,26 +1,37 @@
 """Service layer for credit risk assessment and pricing."""
 
 import polars as pl
+import yaml
+from pathlib import Path
 from typing import List, Dict, Any
 
 from .features import prepare_submissions_features, prepare_policies_features
 from .pricing import suggest_rate, SECTOR_BASE_RATES
 
 
+def load_weights_config() -> Dict[str, Any]:
+    """Load weights configuration from YAML file."""
+    weights_file = Path(__file__).parent.parent / "weights.yaml"
+    with open(weights_file, 'r') as f:
+        return yaml.safe_load(f)
+
+
+# Load weights configuration
+WEIGHTS_CONFIG = load_weights_config()
+
+
 def triage_scores(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
     """
     Calculate triage scores for submissions based on weighted risk factors.
     
-    Scoring weights:
-    - 25% normalized exposure_limit (higher exposure = higher priority)
-    - 20% (1 - debtor_days/180) (shorter debtor days = better)
-    - 15% financials_attached flag (financials reduce uncertainty)
-    - 15% years_trading/30 (more experience = better)
-    - 15% broker_hit_rate (proven track record)
-    - 10% (1 - judgements) (no judgements = better)
+    Scoring weights are loaded from weights.yaml configuration.
     
-    Returns list of triage scores with reasons.
+    Returns list of triage scores with reasons and weights version.
     """
+    # Get weights from configuration
+    weights = WEIGHTS_CONFIG["triage_weights"]
+    thresholds = WEIGHTS_CONFIG["thresholds"]
+    
     # Normalize exposure limit to 0-1 range (using log scale for better distribution)
     max_exposure = submissions_df["exposure_limit"].max()
     min_exposure = submissions_df["exposure_limit"].min()
@@ -28,12 +39,12 @@ def triage_scores(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
     
     # Calculate weighted scores using vectorized operations
     scores = (
-        0.25 * ((submissions_df["exposure_limit"] - min_exposure) / exposure_range) +
-        0.20 * (1 - submissions_df["debtor_days"] / 180) +
-        0.15 * submissions_df["financials_attached"] +
-        0.15 * (submissions_df["years_trading"] / 30) +
-        0.15 * submissions_df["broker_hit_rate"] +
-        0.10 * (1 - submissions_df["has_judgements"])
+        weights["exposure_limit"] * ((submissions_df["exposure_limit"] - min_exposure) / exposure_range) +
+        weights["debtor_days"] * (1 - submissions_df["debtor_days"] / thresholds["debtor_days_normalization"]) +
+        weights["financials_attached"] * submissions_df["financials_attached"] +
+        weights["years_trading"] * (submissions_df["years_trading"] / thresholds["years_trading_normalization"]) +
+        weights["broker_hit_rate"] * submissions_df["broker_hit_rate"] +
+        weights["has_judgements"] * (1 - submissions_df["has_judgements"])
     )
     
     # Clip scores to 0-1 range
@@ -70,30 +81,36 @@ def triage_scores(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
             "reasons": reasons
         })
     
-    return results
+    return {
+        "scores": results,
+        "weights_version": WEIGHTS_CONFIG["version"]
+    }
 
 
 def renewals_priority(policies_df: pl.DataFrame) -> List[Dict[str, Any]]:
     """
     Calculate renewal priority scores for policies based on weighted factors.
     
-    Priority weights:
-    - 35% (1 - days_to_expiry/365) (expiring soon = higher priority)
-    - 25% utilization_pct (high utilization = higher priority)
-    - 25% claims_ratio_24m clipped 0-2 / 2 (elevated loss ratio = higher priority)
-    - 15% (-requested_change_pct) clipped to [-0.3, 0.3] (reduction request = higher priority)
+    Priority weights are loaded from weights.yaml configuration.
     
-    Returns list of priority scores with reasons.
+    Returns list of priority scores with reasons and weights version.
     """
+    # Get weights from configuration
+    weights = WEIGHTS_CONFIG["renewals_weights"]
+    thresholds = WEIGHTS_CONFIG["thresholds"]
+    
     # Calculate weighted priority scores using vectorized operations
     # Clip requested_change_pct to reasonable range for scoring
-    change_pct_clipped = policies_df["requested_change_pct"].clip(-0.3, 0.3)
+    change_pct_clipped = policies_df["requested_change_pct"].clip(
+        thresholds["change_pct_min"], 
+        thresholds["change_pct_max"]
+    )
     
     priorities = (
-        0.35 * (1 - policies_df["days_to_expiry"] / 365) +
-        0.25 * policies_df["utilization_pct"] +
-        0.25 * (policies_df["claims_ratio_24m"].clip(0, 2) / 2) +
-        0.15 * (-change_pct_clipped)  # Negative because reduction requests increase priority
+        weights["days_to_expiry"] * (1 - policies_df["days_to_expiry"] / 365) +
+        weights["utilization_pct"] * policies_df["utilization_pct"] +
+        weights["claims_ratio_24m"] * (policies_df["claims_ratio_24m"].clip(0, thresholds["claims_ratio_max"]) / thresholds["claims_ratio_max"]) +
+        weights["requested_change_pct"] * (-change_pct_clipped)  # Negative because reduction requests increase priority
     )
     
     # Clip priorities to 0-1 range
@@ -131,7 +148,10 @@ def renewals_priority(policies_df: pl.DataFrame) -> List[Dict[str, Any]]:
             "reasons": reasons
         })
     
-    return results
+    return {
+        "scores": results,
+        "weights_version": WEIGHTS_CONFIG["version"]
+    }
 
 
 def pricing_suggestions(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
@@ -162,4 +182,7 @@ def pricing_suggestions(submissions_df: pl.DataFrame) -> List[Dict[str, Any]]:
             "adjustments": adjustments
         })
     
-    return results
+    return {
+        "suggestions": results,
+        "weights_version": WEIGHTS_CONFIG["version"]
+    }
